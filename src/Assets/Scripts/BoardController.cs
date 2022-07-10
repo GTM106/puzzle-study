@@ -30,17 +30,13 @@ public class BoardController : MonoBehaviour
     List<FallData> _falls = new();
     int _fallFrames = 0;
 
+    //削除する際の一時的変数
+    List<Vector2Int> _erases = new();
+    int _eraseFrames = 0;
+
     void Start()
     {
         ClearAll();
-
-        //for(int y = 0; y < BOARD_HEIGHT; y++)
-        //{
-        //    for(int x = 0; x < BOARD_WIDTH; x++)
-        //    {
-        //        Settle(new Vector2Int(x,y),Random.Range(1, 7));
-        //    }
-        //}
     }
 
     /// <summary>
@@ -99,9 +95,9 @@ public class BoardController : MonoBehaviour
         for (int i = 0; i < BOARD_WIDTH; i++) dests[i] = 0;
 
         int max_check_line = BOARD_HEIGHT - 1;
-        for(int y=0; y < max_check_line; y++)//下から上に検索
+        for (int y = 0; y < max_check_line; y++)//下から上に検索
         {
-            for(int x=0; x < BOARD_WIDTH; x++)
+            for (int x = 0; x < BOARD_WIDTH; x++)
             {
                 if (_board[y, x] == 0) continue;
 
@@ -110,14 +106,14 @@ public class BoardController : MonoBehaviour
 
                 if (y == 0) continue;
 
-                if (_board[y-1,x] != 0) continue;//下があるなら対象外
+                if (_board[y - 1, x] != 0) continue;//下があるなら対象外
 
                 _falls.Add(new FallData(x, y, dest));
 
                 //データの変更
                 _board[dest, x] = _board[y, x];
                 _board[y, x] = 0;
-                _Puyos[dest, x] = _Puyos[y,x];
+                _Puyos[dest, x] = _Puyos[y, x];
                 _Puyos[y, x] = null;
 
                 dests[x] = dest + 1; //次のものは落ちたさらに上に乗る
@@ -134,9 +130,9 @@ public class BoardController : MonoBehaviour
         float dy = _fallFrames / (float)FALL_FRAME_PAR_CELL;
         int di = (int)dy;
 
-        for(int i = _falls.Count-1; i>=0; i--)//ループ中に削除しても安全なように後ろから検索
+        for (int i = _falls.Count - 1; i >= 0; i--)//ループ中に削除しても安全なように後ろから検索
         {
-            FallData f=_falls[i];
+            FallData f = _falls[i];
 
             Vector3 pos = _Puyos[f.Dest, f.X].transform.localPosition;
             pos.y = f.Y - dy;
@@ -150,5 +146,86 @@ public class BoardController : MonoBehaviour
         }
 
         return _falls.Count != 0;
+    }
+
+    static readonly Vector2Int[] search_tbl = new Vector2Int[] { Vector2Int.up, Vector2Int.right, Vector2Int.down, Vector2Int.left };
+
+    public bool CheckErase()
+    {
+        _eraseFrames = 0;
+        _erases.Clear();
+
+        uint[] isChecked = new uint[BOARD_HEIGHT];//メモリを多く使うのは無駄なためビット処理
+
+        List<Vector2Int> addList = new();
+        for (int y = 0; y < BOARD_HEIGHT; y++)
+        {
+            for (int x = 0; x < BOARD_WIDTH; x++)
+            {
+                if ((isChecked[y] & (1u << x)) != 0) continue;
+
+                isChecked[y] |= (1u << x);
+
+                int type = _board[y, x];
+                if (type == 0) continue;//空間
+
+                System.Action<Vector2Int> getConnection = null;//再帰の際に必要
+                getConnection = (pos) =>
+                {
+                    addList.Add(pos);//削除対象
+
+                    foreach (Vector2Int d in search_tbl)
+                    {
+                        Vector2Int target = pos + d;
+                        if (target.x < 0 || BOARD_WIDTH <= target.x
+                         || target.y < 0 || BOARD_HEIGHT <= target.y) continue;//範囲外
+                        if (_board[target.y, target.x] != type) continue;//色が違う
+                        if ((isChecked[target.y] & (1u << target.x)) != 0) continue;//検索済み
+
+                        isChecked[target.y] |= (1u << target.x);
+                        getConnection(target);
+                    }
+                };
+
+                addList.Clear();
+                getConnection(new Vector2Int(x, y));
+
+                if (addList.Count >= 4)
+                {
+                    _erases.AddRange(addList);
+                }
+            }
+        }
+
+        return _erases.Count != 0;
+    }
+
+    public bool Erase()
+    {
+        _eraseFrames++;
+
+        //1から増えてちょっとしたら大きくなってそのあと小さくなって消える（tween）
+        float t = _eraseFrames * Time.deltaTime;
+        t = 1f - 10f * ((t - 0.1f) * (t - 0.1f) - 0.1f * 0.1f);
+        //大きさが負なら終わり
+        if (t <= 0f)
+        {
+            foreach (Vector2Int d in _erases)
+            {
+                Destroy(_Puyos[d.y, d.x]);
+                _Puyos[d.y, d.x] = null;
+                _board[d.y, d.x] = 0;
+            }
+
+            return false;
+        }
+
+        //大きさを変更
+        foreach (Vector2Int d in _erases)
+        {
+            _Puyos[d.y, d.x].transform.localScale = Vector3.one * t;
+        }
+
+        return true;
     }
 }
