@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TMPro;
 
 [RequireComponent(typeof(BoardController))]
 public class PlayDirector : MonoBehaviour
@@ -31,6 +32,10 @@ public class PlayDirector : MonoBehaviour
 
     NextQueue _nextQueue = new();
     [SerializeField] PuyoPair[] nextPuyoPairs = { default!, default! }; //次nextのゲームオブジェクトの制御
+
+    [SerializeField] TextMeshProUGUI textScore = default!;
+    uint _score = 0;
+    int _chainCount = -1;//連鎖数
 
     //状態管理
     IState.E_State _current_state = IState.E_State.Falling;
@@ -96,6 +101,9 @@ public class PlayDirector : MonoBehaviour
         UpdateInput();
 
         UpdateState();
+
+        AddScore(_playerController.PopScore());
+        AddScore(_boardController.PopScore());
     }
 
     void InitalizeState()
@@ -173,11 +181,25 @@ public class PlayDirector : MonoBehaviour
     {
         public IState.E_State Initialize(PlayDirector parent)
         {
-            return parent._boardController.CheckErase() ? IState.E_State.Unchanged : IState.E_State.Control;
+            if (parent._boardController.CheckErase(parent._chainCount++)) return IState.E_State.Unchanged;
+
+            parent._chainCount = 0;
+            return IState.E_State.Control;
         }
         public IState.E_State Update(PlayDirector parent)
         {
             return parent._boardController.Erase() ? IState.E_State.Unchanged : IState.E_State.Falling;
         }
+    }
+
+    void SetScore(uint score)
+    {
+        _score = score;
+        textScore.text = _score.ToString();
+    }
+
+    void AddScore(uint score)
+    {
+        if (0 < score) SetScore(_score + score);
     }
 }
