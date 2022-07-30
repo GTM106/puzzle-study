@@ -45,20 +45,12 @@ public class PlayerController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        _puyoControllers[0].SetPuyoType(PuyoType.Green);
-        _puyoControllers[1].SetPuyoType(PuyoType.Red);
-
-        _position = new Vector2Int(2, 12);
-        _rotate = RotState.Up;
-
-        _puyoControllers[0].SetPos(new Vector3(_position.x, _position.y, 0.0f));
-        Vector2Int posChild = CalcChildPuyoPos(_position, _rotate);
-        _puyoControllers[1].SetPos(new Vector3(posChild.x, posChild.y, 0.0f));
+        gameObject.SetActive(false);//ぷよの種類が設定されるまで眠る
     }
 
     public void SetLogicalInput(LogicalInput reference) => _logicalInput = reference;
 
-    public bool Spawn(PuyoType axis,PuyoType child)
+    public bool Spawn(PuyoType axis, PuyoType child)
     {
         //初期位置に出せるかチェック
         Vector2Int position = new(2, 12);//初期位置

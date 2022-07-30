@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+//最終的に未使用です。
 public class PuyoDirector : MonoBehaviour
 {
     [SerializeField] private GameObject player = default!;
